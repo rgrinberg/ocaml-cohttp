@@ -108,14 +108,20 @@ module Make(IO : S.IO) = struct
   let read_body_chunk = Transfer_IO.read
 
   let write_header req oc =
-   let fst_line = Printf.sprintf "%s %s %s\r\n" (Code.string_of_method req.meth)
-      (Uri.path_and_query req.uri) (Code.string_of_version req.version) in
-    let headers = Header.add req.headers "host"
-        (Uri.host_with_default ~default:"localhost" req.uri ^
+    let fst_line = Printf.sprintf "%s %s %s\r\n"
+                     (Code.string_of_method req.meth)
+                     (Uri.path_and_query req.uri)
+                     (Code.string_of_version req.version) in
+    let headers =
+      match Header.get req.headers "host" with
+      | Some _ -> req.headers
+      | None ->
+        Header.add req.headers "host"
+          (Uri.host_with_default ~default:"localhost" req.uri ^
            match Uri.port req.uri with
            | Some p -> ":" ^ string_of_int p
-           | None -> ""
-        ) in
+           | None -> "")
+    in
     let headers = Header.add_transfer_encoding headers req.encoding in
     IO.write oc fst_line >>= fun _ ->
     iter (IO.write oc) (Header.to_lines headers) >>= fun _ ->
